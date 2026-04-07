@@ -9,11 +9,15 @@ import java.lang.reflect.Method;
 public class DistributedInvocationHandler implements InvocationHandler {
 
     private final Object target;
-    private final ExecutionStrategy strategy;
+    private final ExecutionStrategy localStrategy;
+    private final ExecutionStrategy remoteStrategy;
 
-    public DistributedInvocationHandler(Object target, ExecutionStrategy strategy) {
+    public DistributedInvocationHandler(Object target,
+                                        ExecutionStrategy localStrategy,
+                                        ExecutionStrategy remoteStrategy) {
         this.target = target;
-        this.strategy = strategy;
+        this.localStrategy = localStrategy;
+        this.remoteStrategy = remoteStrategy;
     }
 
     @Override
@@ -26,8 +30,8 @@ public class DistributedInvocationHandler implements InvocationHandler {
                     .getMethod(method.getName(), method.getParameterTypes());
         } catch (NoSuchMethodException e) {
             throw new IllegalStateException(
-                "Implementation class " + target.getClass().getName() +
-                " is missing method: " + method.getName(), e);
+                    "Implementation class " + target.getClass().getName() +
+                    " is missing method: " + method.getName(), e);
         }
 
         // Step 2: Check if @Distributed is present
@@ -50,7 +54,11 @@ public class DistributedInvocationHandler implements InvocationHandler {
             }
         }
 
-        // Step 5: Delegate to execution strategy
-        return strategy.execute(target, targetMethod, args);
+        // Step 5: Route to correct strategy based on annotation
+        if (isDistributed) {
+            return remoteStrategy.execute(target, targetMethod, args); // distributed path
+        } else {
+            return localStrategy.execute(target, targetMethod, args);  // local path
+        }
     }
 }

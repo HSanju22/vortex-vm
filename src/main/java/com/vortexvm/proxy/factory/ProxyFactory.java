@@ -3,6 +3,8 @@ package com.vortexvm.proxy.factory;
 import com.vortexvm.proxy.handler.DistributedInvocationHandler;
 import com.vortexvm.proxy.strategy.ExecutionStrategy;
 import com.vortexvm.proxy.strategy.LocalExecutionStrategy;
+import com.vortexvm.proxy.strategy.SimulatedRemoteStrategy;
+import com.vortexvm.worker.WorkerExecutor;
 
 import java.lang.reflect.Proxy;
 
@@ -23,12 +25,20 @@ public class ProxyFactory {
                 "Target object cannot be null");
         }
 
-        // Step 2: Create execution strategy (Phase 1 = local)
-        ExecutionStrategy strategy = new LocalExecutionStrategy();
+        // // Step 2: Create execution strategy (Phase 1 = local)
+        // ExecutionStrategy strategy = new SimulatedRemoteStrategy(new WorkerExecutor());
 
-        // Step 3: Create invocation handler
-        DistributedInvocationHandler handler =
-                new DistributedInvocationHandler(target, strategy);
+        // // Step 3: Create invocation handler
+        // DistributedInvocationHandler handler =
+        //         new DistributedInvocationHandler(target, strategy);
+
+        // Step 2: Create execution strategies
+ExecutionStrategy local = new LocalExecutionStrategy();
+ExecutionStrategy remote = new SimulatedRemoteStrategy(new WorkerExecutor());
+
+// Step 3: Create invocation handler
+DistributedInvocationHandler handler =
+        new DistributedInvocationHandler(target, local, remote);
 
         // Step 4: Resolve classloader safely
         ClassLoader cl = Thread.currentThread().getContextClassLoader();
