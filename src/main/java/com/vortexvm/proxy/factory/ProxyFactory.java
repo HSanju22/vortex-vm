@@ -4,6 +4,7 @@ import com.vortexvm.proxy.handler.DistributedInvocationHandler;
 import com.vortexvm.proxy.strategy.ExecutionStrategy;
 import com.vortexvm.proxy.strategy.LocalExecutionStrategy;
 import com.vortexvm.proxy.strategy.SimulatedRemoteStrategy;
+import com.vortexvm.proxy.strategy.TcpRemoteStrategy;
 import com.vortexvm.worker.WorkerExecutor;
 
 import java.lang.reflect.Proxy;
@@ -34,7 +35,7 @@ public class ProxyFactory {
 
         // Step 2: Create execution strategies
 ExecutionStrategy local = new LocalExecutionStrategy();
-ExecutionStrategy remote = new SimulatedRemoteStrategy(new WorkerExecutor());
+ExecutionStrategy remote = new TcpRemoteStrategy("localhost", 9090);
 
 // Step 3: Create invocation handler
 DistributedInvocationHandler handler =
