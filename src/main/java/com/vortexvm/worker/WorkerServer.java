@@ -13,7 +13,7 @@ public class WorkerServer {
 
     public static void main(String[] args) {
 
-        int port = 9090;
+        int port = args.length > 0 ? Integer.parseInt(args[0]) : 9091;
         WorkerExecutor workerExecutor = new WorkerExecutor();
 
         try (ServerSocket serverSocket = new ServerSocket(port)) {
