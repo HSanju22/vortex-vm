@@ -22,6 +22,11 @@ public class NodeRegistry {
                 .toList();
     }
 
+    // Returns ALL workers regardless of status
+    public List<WorkerNode> getAllWorkers() {
+        return nodes.stream().toList();
+    }
+
     // Register new worker
     public void register(WorkerNode node) {
         nodes.add(node);

@@ -16,103 +16,100 @@ public class OrchestratorServer {
 
         int port = 9090;
 
-        // 🔹 Step 1: Create WorkerNodes
+        // Step 1: Create WorkerNodes
         WorkerNode w1 = new WorkerNode("localhost", 9091);
         WorkerNode w2 = new WorkerNode("localhost", 9092);
 
-        // 🔹 Step 2: Create registry
+        // Step 2: Create registry
         NodeRegistry registry = new NodeRegistry(Arrays.asList(w1, w2));
 
-        // 🔹 Step 3: Print registry
+        // Step 3: Print registry
         registry.printRegistry();
 
-        // 🔹 Step 4: Create LoadBalancer
+        // Step 4: Create LoadBalancer
         LoadBalancer loadBalancer = new LoadBalancer(registry);
+
+        // Step 5: Start heartbeat BEFORE server loop
+        HeartbeatMonitor heartbeat = new HeartbeatMonitor(registry, 5000);
+        heartbeat.start();
+        System.out.println("[Orchestrator] Heartbeat monitor started");
 
         try (ServerSocket serverSocket = new ServerSocket(port)) {
 
-            // 🔹 Step 6: Start log
             System.out.println("[Orchestrator] Started on port " + port);
 
-            // 🔹 Step 7: Loop forever
             while (true) {
 
-                // 🔹 Step 8: Accept client connection
                 Socket clientSocket = serverSocket.accept();
-
-                // 🔹 Step 9: Log
                 System.out.println("[Orchestrator] Client connected: "
                         + clientSocket.getInetAddress());
 
-                // 🔥 Step 10: Handle in virtual thread
                 Thread.ofVirtual().start(() -> {
 
                     try (
-                            InputStream clientIn = clientSocket.getInputStream();
-                            OutputStream clientOut = clientSocket.getOutputStream()
+                        InputStream clientIn = clientSocket.getInputStream();
+                        OutputStream clientOut = clientSocket.getOutputStream()
                     ) {
+                        // Receive packet from client
+                        ExecutionPacket packet = 
+                                NetworkSerializer.receivePacket(clientIn);
 
-                        // 🔹 Step 11: Receive packet from client
-                        ExecutionPacket packet = NetworkSerializer.receivePacket(clientIn);
+                        // Retry loop
+                        int maxRetries = 3;
 
-                        // 🔹 Step 12: Select worker
-                        WorkerNode worker = loadBalancer.selectWorker();
+                        for (int attempt = 1; attempt <= maxRetries; attempt++) {
+                            try {
+                                WorkerNode worker = loadBalancer.selectWorker();
+                                System.out.println("[Orchestrator] Attempt "
+                                        + attempt + " → selected worker: " + worker);
 
-                        // 🔹 Step 13: Log selected worker
-                        System.out.println("[Orchestrator] Selected worker: " + worker);
+                                try (Socket workerSocket = new Socket(
+                                             worker.getHost(), worker.getPort());
+                                     InputStream workerIn = 
+                                             workerSocket.getInputStream();
+                                     OutputStream workerOut = 
+                                             workerSocket.getOutputStream()) {
 
-                        // 🔹 Step 14–16: Connect to worker and forward
-                        try (Socket workerSocket = new Socket(worker.getHost(), worker.getPort());
-                             InputStream workerIn = workerSocket.getInputStream();
-                             OutputStream workerOut = workerSocket.getOutputStream()) {
+                                    NetworkSerializer.sendPacket(workerOut, packet);
+                                    ExecutionResult result = 
+                                            NetworkSerializer.receiveResult(workerIn);
+                                    NetworkSerializer.sendResult(clientOut, result);
 
-                            // 🔹 Step 15: Send packet to worker
-                            NetworkSerializer.sendPacket(workerOut, packet);
+                                    System.out.println("[Orchestrator] Forwarded"
+                                            + " result: " + result.getValue());
+                                    break; // success — exit retry loop
+                                }
 
-                            // 🔹 Step 16: Receive result
-                            ExecutionResult result = NetworkSerializer.receiveResult(workerIn);
+                            } catch (Exception e) {
+                                System.out.println("[Orchestrator] Attempt "
+                                        + attempt + " failed: " + e.getMessage());
 
-                            // 🔹 Step 17: Send result back to client
-                            NetworkSerializer.sendResult(clientOut, result);
-
-                            // 🔹 Step 18: Log success
-                            System.out.println("[Orchestrator] Forwarded result: " + result.getValue());
-
+                                if (attempt == maxRetries) {
+                                    ExecutionResult failed = new ExecutionResult(
+                                            "unknown", null, false,
+                                            "All " + maxRetries 
+                                            + " attempts failed: " + e.getMessage(),
+                                            System.currentTimeMillis()
+                                    );
+                                    NetworkSerializer.sendResult(clientOut, failed);
+                                }
+                            }
                         }
 
                     } catch (Exception e) {
-
-                        // 🔥 Step 20: Critical failure handling
-                        System.out.println("[Orchestrator] Error: " + e.getMessage());
-
-                        try (OutputStream clientOut = clientSocket.getOutputStream()) {
-
-                            ExecutionResult failed = new ExecutionResult(
-                                    "unknown",
-                                    null,
-                                    false,
-                                    e.getMessage(),
-                                    System.currentTimeMillis()
-                            );
-
-                            NetworkSerializer.sendResult(clientOut, failed);
-
-                        } catch (Exception ex) {
-                            System.out.println("[Orchestrator] Failed to send error response: " + ex.getMessage());
-                        }
-
+                        System.out.println("[Orchestrator] Error: " 
+                                + e.getMessage());
                     } finally {
                         try {
-                            // 🔹 Step 19: Close client socket
                             clientSocket.close();
-                        } catch (Exception ignored) {
-                        }
+                        } catch (Exception ignored) {}
                     }
                 });
             }
 
         } catch (Exception e) {
-            System.out.println("[Orchestrator] Failed to start: " + e.getMessage());
+            System.out.println("[Orchestrator] Failed to start: " 
+                    + e.getMessage());
             e.printStackTrace();
         }
     }
