@@ -9,6 +9,9 @@ public class ExecutionPacket {
     private Object[] args;
     private long timestamp;
 
+    // 🔥 NEW FIELD
+    private byte[] classBytes;   // actual .class file bytecode
+
     //no-arg constructor - required by jackson
     public ExecutionPacket(){
 
@@ -79,6 +82,16 @@ public class ExecutionPacket {
         this.timestamp = timestamp;
     }
 
+    // 🔥 NEW GETTER
+    public byte[] getClassBytes() {
+        return classBytes;
+    }
+
+    // 🔥 NEW SETTER
+    public void setClassBytes(byte[] classBytes) {
+        this.classBytes = classBytes;
+    }
+
     // toString() for logging
 
     @Override
@@ -90,6 +103,7 @@ public class ExecutionPacket {
                 ", paramTypes=" + java.util.Arrays.toString(paramTypes) +
                 ", args=" + java.util.Arrays.toString(args) +
                 ", timestamp=" + timestamp +
+                ", classBytes=" + (classBytes != null ? "[" + classBytes.length + " bytes]" : "null") +
                 '}';
     }
 

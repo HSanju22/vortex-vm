@@ -3,6 +3,8 @@ package com.vortexvm.worker;
 import com.vortexvm.model.ExecutionPacket;
 import com.vortexvm.model.ExecutionResult;
 
+import com.vortexvm.classloader.DynamicClassLoader;
+
 import java.lang.reflect.Method;
 import java.util.HashMap;
 import java.util.Map;
@@ -30,7 +32,23 @@ public class WorkerExecutor {
 
             // Step 2: Resolve class
             System.out.println("[Worker] Resolving class: " + packet.getClassName());
-            Class<?> clazz = Class.forName(packet.getClassName());
+Class<?> clazz;
+
+if (packet.getClassBytes() != null && packet.getClassBytes().length > 0) {
+
+    // 🔥 Dynamic loading
+    System.out.println("[Worker] Loading class dynamically from packet bytes");
+
+    DynamicClassLoader loader = new DynamicClassLoader(
+            Thread.currentThread().getContextClassLoader());
+
+    clazz = loader.defineClass(packet.getClassName(), packet.getClassBytes());
+
+} else {
+
+    // 🔹 Standard loading
+    clazz = Class.forName(packet.getClassName());
+}
 
             // Step 3: Resolve parameter types
             String[] paramTypeNames = packet.getParamTypes();
